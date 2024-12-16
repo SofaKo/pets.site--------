@@ -1,224 +1,147 @@
-import React, { useState } from "react";
-import cat from '../images/кошка.jpg';
-import goat from '../images/коза.jpeg';
-import dog1 from '../images/CAT.jpg';
-import hamster from '../images/capibara.jpg';
-import parrot from '../images/белка.jpg';
-import rat from '../images/mous.jpg';
+import React, { useState, useEffect } from "react";
+import Card from './propsCard'; // Assuming this is the correct import path for the Card component
+import AdDetails from './propsDetale';
 
 const Searchforads = () => {
-  const [ads] = useState([
-    {
-      id: 14,
-      type: 'Кошка',
-      description: 'Потерялась кошка, пушистая, серая. Любит играть, ласковая.',
-      chip: 'ca-001-spb',
-      district: 'Василиостровский',
-      date: '24-03-2020',
-      src: cat
-    },
-    {
-      id: 18,
-      type: 'Коза',
-      description: 'Потерялась коза, последний раз видели в здании Московского вокзала г. Санкт-Петербург. Коза белая, пуховая.',
-      chip: 'go-011-spb',
-      district: 'Центральный',
-      date: '14-03-2022',
-      src: goat
-    },
-    {
-      id: 22,
-      type: 'Кот',
-      description: 'Потерялся взрослый кот, шотландец. Ласковый, но ам к вам не подойдет.',
-      chip: 'dog-123-msk',
-      district: 'Московский',
-      date: '01-04-2023',
-      src: dog1
-    },
-    {
-      id: 25,
-      type: 'Капибара',
-      description: 'Сбежала капибара. Очень ласковая, выпрашивает шоколадки!.',
-      chip: '(нет)',
-      district: 'Фрунзенский',
-      date: '10-05-2023',
-      src: hamster
-    },
-    {
-      id: 28,
-      type: 'Белка',
-      description: 'Сбежала белка рыжая по кличке Симба.',
-      chip: '(нет)',
-      district: 'Адмиралтейский',
-      date: '20-06-2023',
-      src: parrot
-    },
-    {
-      id: 31,
-      type: 'Крыса',
-      description: 'Сбежала декоративная крыса, черная, с розовыми ушками. Очень дружелюбная.',
-      chip: '(нет)',
-      district: 'Выборгский',
-      date: '25-07-2023',
-      src: rat
-    },
-  ]);
-
-  const [regionInput, setRegionInput] = useState("");
-  const [animalTypeInput, setAnimalTypeInput] = useState("");
-  const [filteredAds, setFilteredAds] = useState(ads);
+  const [district, setDistrict] = useState('Невский'); // Начальное значение 'Невский'
+  const [kind, setKind] = useState('');
+  const [ads, setAds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedAd, setSelectedAd] = useState(null); // Состояние для выбранного объявления
-  const adsPerPage = 9;
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [selectedAd, setSelectedAd] = useState(null);
+  const [selectedAnimal, setSelectedAnimal] = useState(null); // State for selected animal card
 
-  const searchAds = () => {
-    const filtered = ads.filter((ad) => {
-      const matchesRegion = ad.district.toLowerCase().includes(regionInput.toLowerCase());
-      const matchesAnimalType = ad.type.toLowerCase().includes(animalTypeInput.toLowerCase());
-      return matchesRegion && matchesAnimalType;
-    });
-    setFilteredAds(filtered);
-    setCurrentPage(1);  // Сброс на первую страницу после поиска
+  const itemsPerPage = 9;
+
+  // Function to fetch ads from the API
+  const fetchAds = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const requestOptions = {
+        method: "GET",
+        redirect: "follow",
+      };
+
+      const response = await fetch(`https://pets.сделай.site/public/api/search/order?district=${district}&kind=${kind}`, requestOptions);
+      const data = await response.json();
+      if (response.ok) {
+        setAds(data.data.orders);
+      } else {
+        setAds([]);
+      }
+    } catch (err) {
+      setError("Error fetching ads.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  // Handle search button click
+  const searchAds = () => {
+    fetchAds();
+    setCurrentPage(1); // Reset to first page on new search
+  };
 
-  const indexOfLastAd = currentPage * adsPerPage;
-  const indexOfFirstAd = indexOfLastAd - adsPerPage;
-  const currentAds = filteredAds.slice(indexOfFirstAd, indexOfLastAd);
+  // Handle page changes
+  const paginate = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
 
-  const totalPages = Math.ceil(filteredAds.length / adsPerPage);
+  // Select ad for details view
+  const selectAd = (ad) => {
+    setSelectedAd(ad);
+    openAnimalCard(ad.id); // Fetch detailed animal data when ad is selected
+  };
 
-  // Функция для возврата к списку
+  // Function to fetch the selected animal's details
+  const openAnimalCard = async (animalId) => {
+    try {
+      const response = await fetch(`https://pets.сделай.site/api/pets/${animalId}`);
+      const data = await response.json();
+      setSelectedAnimal(data.data.pet); // Assuming 'data.data.pet' contains the detailed pet data
+    } catch (error) {
+      console.error('Error fetching detailed pet data:', error);
+    }
+  };
+
+  // Close the ad details view
   const closeAd = () => {
     setSelectedAd(null);
+    setSelectedAnimal(null); // Clear the selected animal
   };
+
+  // Calculate ads for current page
+  const indexOfLastAd = currentPage * itemsPerPage;
+  const indexOfFirstAd = indexOfLastAd - itemsPerPage;
+  const currentAds = ads.slice(indexOfFirstAd, indexOfLastAd);
 
   return (
     <div>
-      {/* Панель поиска, которая остается на экране */}
+      {/* Search Panel */}
       <div className="search-box text-center text-white bg-primary me-2 p-2">
-        <h3>Поиск</h3>
+        <h3>Поиска по объявлениям</h3>
         <div className="d-flex flex-wrap justify-content-center">
           <input
             type="text"
-            className="form-control w-25 d-flex flex-wrap justify-content-center me-2"
+            className="form-control w-25 me-2"
             placeholder="Район"
-            value={regionInput}
-            onChange={(e) => setRegionInput(e.target.value)}
+            value={district}
+            onChange={(e) => setDistrict(e.target.value)} // Обновление district при вводе
           />
           <input
             type="text"
-            className="form-control w-25 d-flex flex-wrap justify-content-center me-2"
-            placeholder="Вид животного"
-            value={animalTypeInput}
-            onChange={(e) => setAnimalTypeInput(e.target.value)}
+            className="form-control w-25 me-2"
+            placeholder="Тип животного"
+            value={kind}
+            onChange={(e) => setKind(e.target.value)}
           />
-          <button onClick={searchAds} className="btn btn-light me-2">Найти</button>
+          <button onClick={searchAds} className="btn btn-light me-2">Search</button>
         </div>
       </div>
 
-      {/* Основной контент */}
       <div>
-        {selectedAd ? (
-          <div>
-           
-            <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '70vh' }}>
-              <div className="card-details d-flex flex-wrap align-items-center border p-2" style={{ width: '90%', height: '500px'}}>
-                <div className="image-container" style={{ maxWidth: '100%' }}>
-                  <img
-                    src={selectedAd.src}
-                    alt={`рисунок ${selectedAd.type}`}
-                    style={{
-                      height: '400px',
-                      width: '600px',
-                 
-                      objectFit: 'cover'
-                    }}
-                    className="animal-image"
-                  />
-                </div>
-                <div className="text-container ms-4" style={{ maxWidth: '100%' }}>
-                  <h5>{selectedAd.type}</h5>
-                  <p><strong>ID:</strong> {selectedAd.id}</p>
-                  <p><strong>Описание:</strong> {selectedAd.description}</p>
-                  <p><strong>Номер чипа:</strong> {selectedAd.chip}</p>
-                  <p><strong>Район:</strong> {selectedAd.district}</p>
-                  <p><strong>Дата:</strong> {selectedAd.date}</p>
-                  <button className="btn btn-primary" onClick={closeAd}>Назад к списку</button>
-                </div>
-              </div>
-             
-            </div>
-
-            {/* CSS медиа-запросы */}
-            <style jsx>{`
-              @media (max-width: 768px) {
-                .card-details {
-                  flex-direction: column;
-                  text-align: center;
-                }
-
-                .image-container {
-                  max-width: 100%;
-                  margin-bottom: 20px;
-                }
-
-                .animal-image {
-                  max-height: 300px;
-                  width: auto;
-                }
-
-                .text-container {
-                  margin-left: 0;
-                }
-              }
-            `}</style>
-          </div>
+        {selectedAnimal ? (
+          <AdDetails key={selectedAnimal.id} selectedAd={selectedAnimal} closeAd={closeAd} />
         ) : (
           <>
-            {/* Список объявлений */}
             <div className="d-flex flex-wrap justify-content-center">
-              {filteredAds.length === 0 ? (
-                <p className="" style={{ height: '570px' }}>Объявлений не найдено.</p>
+              {isLoading ? (
+                <p className="text-center" style={{ height: '620px' }}>Loading ads...</p>
+              ) : error ? (
+                <p className="text-center" style={{ height: '620px', color: 'red' }}>{error}</p>
+              ) : currentAds.length === 0 ? (
+                <p className="text-center" style={{ height: '620px' }}>Не найдено.</p>
               ) : (
-                currentAds.map((ad) => (
-                  <div key={ad.id} className="card border m-3" style={{ minWidth: 300, width: '30%' }} onClick={() => setSelectedAd(ad)}>
-                    <img
-                      className="card-img-top"
-                      src={ad.src}
-                      alt={ad.type}
-                      style={{ height: '60%', objectFit: 'cover' }}
-                    />
-                    <div className="card-body">
-                      <h5 className="card-title">{ad.type}</h5>
-                      <p className="card-text"><strong>ID:</strong> {ad.id}</p>
-                      <p className="card-text"><strong>Описание:</strong> {ad.description}</p>
-                      <p className="card-text"><strong>Номер чипа:</strong> {ad.chip}</p>
-                      <p className="card-text"><strong>Район:</strong> {ad.district}</p>
-                      <p className="card-text"><strong>Дата:</strong> {ad.date}</p>
-                    </div>
-                  </div>
+                currentAds.map((pet) => (
+                  <Card
+                    key={pet.id}
+                    pet={pet}
+                    onClick={() => selectAd(pet)} // Open ad details on click
+                  />
                 ))
               )}
             </div>
 
-            {/* Пагинация */}
-            <nav aria-label="pagination" className="m-auto">
-              <ul className="pagination pagination-lg justify-content-center">
-                {Array.from({ length: totalPages }, (_, index) => (
-                  <li key={index} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
-                    <a
-                      className="page-link"
-                      href="#"
-                      onClick={() => paginate(index + 1)}
-                    >
-                      {index + 1}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </nav>
+            {/* Pagination */}
+            {ads.length > 0 && (
+              <nav aria-label="pagination" className="m-auto">
+                <ul className="pagination pagination-lg justify-content-center">
+                  {Array.from({ length: Math.ceil(ads.length / itemsPerPage) }, (_, index) => (
+                    <li key={index} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
+                      <button
+                        className="page-link"
+                        onClick={() => paginate(index + 1)}
+                      >
+                        {index + 1}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            )}
           </>
         )}
       </div>
